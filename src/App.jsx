@@ -41,6 +41,10 @@ export default function App() {
   const [star, setStar] = useState(0);
   const [crown, setCrown] = useState(0);
 
+  /* RESULT POPUP */
+  const [showResult, setShowResult] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+
   const total = sabah + ogle + aksam;
 
   /* LOAD */
@@ -91,15 +95,30 @@ export default function App() {
 
     setHistory(prev => [record, ...prev]);
 
+    let starWon = false;
+    let crownWon = false;
+
     if (level.key === "efsane") {
+      starWon = true;
       setStar(prev => {
         if (prev + 1 >= 7) {
+          crownWon = true;
           setCrown(c => c + 1);
           return 0;
         }
         return prev + 1;
       });
     }
+
+    setLastResult({
+      total,
+      levelName: level.name,
+      emoji: level.emoji,
+      starWon,
+      crownWon,
+    });
+
+    setShowResult(true);
 
     setSabah(0);
     setOgle(0);
@@ -238,6 +257,30 @@ export default function App() {
           )
         )}
       </div>
+
+      {/* RESULT POPUP */}
+      {showResult && lastResult && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-72 text-center space-y-3 shadow-lg">
+            <div className="text-4xl">{lastResult.emoji}</div>
+            <div className="font-bold text-lg">{lastResult.levelName}</div>
+            <div className="text-sm text-gray-600">
+              Bugün toplam <b>{lastResult.total} dk</b>
+            </div>
+
+            {lastResult.starWon && <div className="text-yellow-500 font-semibold">⭐ +1 kazandın!</div>}
+            {lastResult.crownWon && <div className="text-purple-600 font-semibold">👑 Taç kazandın!</div>}
+            {!lastResult.starWon && <div className="text-gray-500 text-sm">Yarın daha iyisi olabilir 💪</div>}
+
+            <button
+              onClick={() => setShowResult(false)}
+              className="w-full bg-blue-600 text-white rounded p-2 mt-2"
+            >
+              TAMAM
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
