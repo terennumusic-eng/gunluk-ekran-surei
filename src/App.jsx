@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 
-/* === FORCE UPDATE === */
-const APP_VERSION = "1.0.4";
-
 /* === STORAGE KEYS (SABİT) === */
 const K_TODAY = "app_v2_today";
 const K_HISTORY = "app_v2_history";
@@ -37,19 +34,7 @@ export default function App() {
   const [star, setStar] = useState(0);
   const [crown, setCrown] = useState(0);
 
-  const [pinOK, setPinOK] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-
   const total = sabah + ogle + aksam;
-
-  /* === FORCE CACHE BREAK === */
-  useEffect(() => {
-    const v = localStorage.getItem("app_version");
-    if (v !== APP_VERSION) {
-      localStorage.setItem("app_version", APP_VERSION);
-      window.location.reload(true);
-    }
-  }, []);
 
   /* === LOAD === */
   useEffect(() => {
@@ -88,18 +73,19 @@ export default function App() {
   /* === COMPLETE DAY === */
   function completeDay() {
     const record = {
+      id: Date.now(),
       date: new Date().toLocaleDateString("tr-TR"),
       total,
       level: level.name,
       emoji: level.emoji,
     };
 
-    setHistory(p => [record, ...p]);
+    setHistory((p) => [record, ...p]);
 
     if (level.key === "efsane") {
-      setStar(s => {
+      setStar((s) => {
         if (s + 1 >= settings.weeklyStarTarget) {
-          setCrown(c => c + 1);
+          setCrown((c) => c + 1);
           return 0;
         }
         return s + 1;
@@ -109,6 +95,12 @@ export default function App() {
     setSabah(0);
     setOgle(0);
     setAksam(0);
+  }
+
+  /* === DELETE RECORD === */
+  function deleteRecord(id) {
+    if (!confirm("Bu kaydı silmek istiyor musun?")) return;
+    setHistory((prev) => prev.filter((h) => h.id !== id));
   }
 
   return (
@@ -123,25 +115,26 @@ export default function App() {
 
           <div className="flex justify-center gap-1">
             {Array.from({ length: settings.weeklyStarTarget }).map((_, i) => (
-              <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>⭐</span>
+              <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>
+                ⭐
+              </span>
             ))}
           </div>
 
-          <div className="text-xs text-gray-400">
-            {star}/{settings.weeklyStarTarget} · 👑 {crown} · v{APP_VERSION}
+          <div className="text-xs text-gray-500">
+            {star}/{settings.weeklyStarTarget} · 👑 {crown}
           </div>
         </div>
 
         {/* TABS */}
         <div className="grid grid-cols-4 gap-1">
-          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map(t => (
+          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map((t) => (
             <button
               key={t}
-              onClick={() => {
-                setTab(t);
-                setPinOK(false);
-              }}
-              className={`p-2 rounded ${tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"}`}
+              onClick={() => setTab(t)}
+              className={`p-2 rounded ${
+                tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"
+              }`}
             >
               {t}
             </button>
@@ -171,11 +164,29 @@ export default function App() {
         {/* GEÇMİŞ */}
         {tab === "GEÇMİŞ" && (
           <div className="space-y-2 text-sm">
-            {history.length === 0 && <p className="text-center text-gray-400">Kayıt yok</p>}
-            {history.map((h, i) => (
-              <div key={i} className="flex justify-between bg-gray-100 p-2 rounded">
-                <span>{h.date}</span>
-                <span>{h.emoji} {h.total} dk</span>
+            {history.length === 0 && (
+              <p className="text-center text-gray-400">Kayıt yok</p>
+            )}
+
+            {history.map((h) => (
+              <div
+                key={h.id}
+                className="flex justify-between items-center bg-gray-100 p-2 rounded"
+              >
+                <div>
+                  <div>{h.date}</div>
+                  <div className="text-xs text-gray-500">
+                    {h.emoji} {h.total} dk
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => deleteRecord(h.id)}
+                  className="text-red-500 text-lg"
+                  title="Sil"
+                >
+                  🗑️
+                </button>
               </div>
             ))}
           </div>
@@ -184,7 +195,7 @@ export default function App() {
         {/* ANALİZ */}
         {tab === "ANALİZ" && (
           history.length === 0 ? (
-            <p className="text-center text-gray-400">Henüz analiz yok</p>
+            <p className="text-center text-gray-400">Analiz için veri yok</p>
           ) : (
             <AnalysisPanel history={history} settings={settings} star={star} />
           )
@@ -192,47 +203,26 @@ export default function App() {
 
         {/* AYAR */}
         {tab === "AYAR" && (
-          !pinOK ? (
-            <>
-              <input
-                type="password"
-                placeholder="PIN"
-                value={pinInput}
-                onChange={e => setPinInput(e.target.value)}
-                className="border p-2 w-full"
-              />
-              <button
-                onClick={() => pinInput === settings.pin ? setPinOK(true) : alert("Yanlış PIN")}
-                className="w-full bg-indigo-600 text-white p-2 rounded"
-              >
-                GİRİŞ
-              </button>
-            </>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <label>Çocuk Adı</label>
-              <input
-                className="border p-2 w-full"
-                value={settings.name}
-                onChange={e => setSettings({ ...settings, name: e.target.value })}
-              />
+          <div className="space-y-2 text-sm">
+            <label>Çocuk Adı</label>
+            <input
+              className="border p-2 w-full"
+              value={settings.name}
+              onChange={(e) =>
+                setSettings({ ...settings, name: e.target.value })
+              }
+            />
 
-              <label>Günlük Limit</label>
-              <input
-                type="number"
-                className="border p-2 w-full"
-                value={settings.limit}
-                onChange={e => setSettings({ ...settings, limit: +e.target.value })}
-              />
-
-              <label>Yeni PIN</label>
-              <input
-                type="password"
-                className="border p-2 w-full"
-                onChange={e => setSettings({ ...settings, pin: e.target.value })}
-              />
-            </div>
-          )
+            <label>Günlük Limit</label>
+            <input
+              type="number"
+              className="border p-2 w-full"
+              value={settings.limit}
+              onChange={(e) =>
+                setSettings({ ...settings, limit: +e.target.value })
+              }
+            />
+          </div>
         )}
       </div>
     </div>
@@ -243,24 +233,24 @@ export default function App() {
 function AnalysisPanel({ history, settings, star }) {
   const levels = settings.levels;
   const counts = {
-    efsane: history.filter(h => h.level === "Efsane").length,
-    iyi: history.filter(h => h.level === "İyi").length,
-    sinirda: history.filter(h => h.level === "Sınırda").length,
-    asti: history.filter(h => h.level === "Aştı").length,
+    efsane: history.filter((h) => h.level === "Efsane").length,
+    iyi: history.filter((h) => h.level === "İyi").length,
+    sinirda: history.filter((h) => h.level === "Sınırda").length,
+    asti: history.filter((h) => h.level === "Aştı").length,
   };
 
   const last7 = history.slice(0, 7).reverse();
-  const max = Math.max(...last7.map(d => d.total), 1);
+  const max = Math.max(...last7.map((d) => d.total), 1);
 
   return (
     <div className="space-y-4 text-sm">
-
       <div>
         <h3 className="font-bold">Seviye Dağılımı</h3>
         {Object.entries(counts).map(([k, v]) => (
           <div key={k}>
             <div className="flex justify-between text-xs">
-              <span>{k}</span><span>{v}</span>
+              <span>{k}</span>
+              <span>{v}</span>
             </div>
             <div className="bg-gray-200 h-2 rounded">
               <div
@@ -295,7 +285,6 @@ function AnalysisPanel({ history, settings, star }) {
           />
         </div>
       </div>
-
     </div>
   );
 }
