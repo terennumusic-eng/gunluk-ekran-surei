@@ -21,27 +21,21 @@ const DEFAULT_SETTINGS = {
 };
 
 export default function App() {
-  /* TAB */
   const [tab, setTab] = useState("BUGÜN");
 
-  /* TODAY */
   const [sabah, setSabah] = useState(0);
   const [ogle, setOgle] = useState(0);
   const [aksam, setAksam] = useState(0);
 
-  /* DATA */
   const [history, setHistory] = useState([]);
-
-  /* SETTINGS */
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
   const [pinOK, setPinOK] = useState(false);
   const [pinInput, setPinInput] = useState("");
 
-  /* REWARD */
   const [star, setStar] = useState(0);
   const [crown, setCrown] = useState(0);
 
-  /* RESULT POPUP */
   const [showResult, setShowResult] = useState(false);
   const [lastResult, setLastResult] = useState(null);
 
@@ -125,7 +119,6 @@ export default function App() {
     setAksam(0);
   }
 
-  /* ANALYSIS */
   const avg =
     history.length === 0
       ? 0
@@ -138,11 +131,24 @@ export default function App() {
       <div className="bg-white w-full max-w-md rounded-xl shadow p-4 space-y-4">
 
         {/* HEADER */}
-        <div className="text-center">
+        <div className="text-center space-y-1">
           <h1 className="text-xl font-bold">{settings.name}</h1>
           <div className="text-3xl">{level.emoji}</div>
           <div className="text-sm">{level.name}</div>
-          <div className="text-yellow-500 text-sm">⭐ {star}/7 · 👑 {crown}</div>
+
+          {/* STAR BAR */}
+          <div className="space-y-1">
+            <div className="flex justify-center gap-1">
+              {[...Array(7)].map((_, i) => (
+                <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>
+                  ⭐
+                </span>
+              ))}
+            </div>
+            <div className="text-xs text-gray-500">
+              {star} / 7 · 👑 {crown}
+            </div>
+          </div>
         </div>
 
         {/* TABS */}
