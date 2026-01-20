@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* === STORAGE KEYS (SABİT) === */
 const K_TODAY = "app_v2_today";
@@ -33,6 +33,10 @@ export default function App() {
 
   const [star, setStar] = useState(0);
   const [crown, setCrown] = useState(0);
+
+  /* UNDO STATE */
+  const [deletedItem, setDeletedItem] = useState(null);
+  const undoTimer = useRef(null);
 
   const total = sabah + ogle + aksam;
 
@@ -97,10 +101,24 @@ export default function App() {
     setAksam(0);
   }
 
-  /* === DELETE RECORD === */
-  function deleteRecord(id) {
-    if (!confirm("Bu kaydı silmek istiyor musun?")) return;
-    setHistory((prev) => prev.filter((h) => h.id !== id));
+  /* === DELETE WITH UNDO === */
+  function deleteRecord(item) {
+    setHistory((prev) => prev.filter((h) => h.id !== item.id));
+
+    setDeletedItem(item);
+
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+
+    undoTimer.current = setTimeout(() => {
+      setDeletedItem(null);
+    }, 10000);
+  }
+
+  function undoDelete() {
+    if (!deletedItem) return;
+    setHistory((prev) => [deletedItem, ...prev]);
+    setDeletedItem(null);
+    clearTimeout(undoTimer.current);
   }
 
   return (
@@ -181,7 +199,7 @@ export default function App() {
                 </div>
 
                 <button
-                  onClick={() => deleteRecord(h.id)}
+                  onClick={() => deleteRecord(h)}
                   className="text-red-500 text-lg"
                   title="Sil"
                 >
@@ -225,6 +243,19 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* UNDO BAR */}
+      {deletedItem && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full flex items-center gap-4 shadow-lg">
+          <span>Kayıt silindi</span>
+          <button
+            onClick={undoDelete}
+            className="font-bold underline"
+          >
+            GERİ AL
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -232,6 +263,7 @@ export default function App() {
 /* === ANALYSIS PANEL === */
 function AnalysisPanel({ history, settings, star }) {
   const levels = settings.levels;
+
   const counts = {
     efsane: history.filter((h) => h.level === "Efsane").length,
     iyi: history.filter((h) => h.level === "İyi").length,
