@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 
 /* STORAGE KEYS */
-const K_TODAY = "app_v2_today";
-const K_HISTORY = "app_v2_history";
-const K_SETTINGS = "app_v2_settings";
-const K_REWARD = "app_v2_rewards";
+const K_TODAY = "app_v3_today";
+const K_HISTORY = "app_v3_history";
+const K_SETTINGS = "app_v3_settings";
+const K_REWARD = "app_v3_rewards";
 
 /* DEFAULT SETTINGS */
 const DEFAULT_SETTINGS = {
@@ -12,11 +12,12 @@ const DEFAULT_SETTINGS = {
   limit: 120,
   step: 5,
   pin: "1234",
+  weeklyStarTarget: 5,
   levels: {
-    efsane: { max: 90, emoji: "🤩", bg: "bg-green-100" },
-    normal: { max: 120, emoji: "🙂", bg: "bg-blue-100" },
-    uzgun: { max: 180, emoji: "😞", bg: "bg-orange-100" },
-    asiri: { max: 9999, emoji: "😵", bg: "bg-red-100" },
+    efsane: { max: 80, emoji: "👑", color: "from-purple-600 to-indigo-700" },
+    iyi: { max: 100, emoji: "😊", color: "from-green-500 to-emerald-600" },
+    sinirda: { max: 120, emoji: "😐", color: "from-yellow-500 to-orange-500" },
+    asti: { max: 9999, emoji: "😟", color: "from-red-500 to-rose-600" },
   },
 };
 
@@ -30,18 +31,11 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
-  const [pinOK, setPinOK] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-
   const [star, setStar] = useState(0);
   const [crown, setCrown] = useState(0);
 
-  const [showResult, setShowResult] = useState(false);
-  const [lastResult, setLastResult] = useState(null);
-
   const total = sabah + ogle + aksam;
 
-  /* LOAD */
   useEffect(() => {
     setHistory(JSON.parse(localStorage.getItem(K_HISTORY)) || []);
     setSettings(JSON.parse(localStorage.getItem(K_SETTINGS)) || DEFAULT_SETTINGS);
@@ -56,29 +50,23 @@ export default function App() {
     setCrown(r.crown || 0);
   }, []);
 
-  /* SAVE */
   useEffect(() => {
     localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
-  }, [sabah, ogle, aksam]);
-
-  useEffect(() => {
     localStorage.setItem(K_HISTORY, JSON.stringify(history));
     localStorage.setItem(K_SETTINGS, JSON.stringify(settings));
     localStorage.setItem(K_REWARD, JSON.stringify({ star, crown }));
-  }, [history, settings, star, crown]);
+  }, [sabah, ogle, aksam, history, settings, star, crown]);
 
-  /* LEVEL */
   function getLevel() {
     const l = settings.levels;
-    if (total <= l.efsane.max) return { key: "efsane", name: "Efsane", ...l.efsane };
-    if (total <= l.normal.max) return { key: "normal", name: "Normal", ...l.normal };
-    if (total <= l.uzgun.max) return { key: "uzgun", name: "Üzgün", ...l.uzgun };
-    return { key: "asiri", name: "Aşırı", ...l.asiri };
+    if (total <= l.efsane.max) return { key: "efsane", ...l.efsane, name: "Efsane" };
+    if (total <= l.iyi.max) return { key: "iyi", ...l.iyi, name: "İyi" };
+    if (total <= l.sinirda.max) return { key: "sinirda", ...l.sinirda, name: "Sınırda" };
+    return { key: "asti", ...l.asti, name: "Aştı" };
   }
 
   const level = getLevel();
 
-  /* COMPLETE DAY */
   function completeDay() {
     const record = {
       date: new Date().toLocaleDateString("tr-TR"),
@@ -87,109 +75,74 @@ export default function App() {
       emoji: level.emoji,
     };
 
-    setHistory(prev => [record, ...prev]);
-
-    let starWon = false;
-    let crownWon = false;
+    setHistory((p) => [record, ...p]);
 
     if (level.key === "efsane") {
-      starWon = true;
-      setStar(prev => {
-        if (prev + 1 >= 7) {
-          crownWon = true;
-          setCrown(c => c + 1);
+      setStar((s) => {
+        if (s + 1 >= settings.weeklyStarTarget) {
+          setCrown((c) => c + 1);
           return 0;
         }
-        return prev + 1;
+        return s + 1;
       });
     }
-
-    setLastResult({
-      total,
-      levelName: level.name,
-      emoji: level.emoji,
-      starWon,
-      crownWon,
-    });
-
-    setShowResult(true);
 
     setSabah(0);
     setOgle(0);
     setAksam(0);
   }
 
-  const avg =
-    history.length === 0
-      ? 0
-      : Math.round(history.reduce((s, g) => s + g.total, 0) / history.length);
-
-  const efsaneCount = history.filter(h => h.level === "Efsane").length;
-
   return (
-    <div className={`min-h-screen flex justify-center p-4 ${level.bg}`}>
-      <div className="bg-white w-full max-w-md rounded-xl shadow p-4 space-y-4">
+    <div className={`min-h-screen bg-gradient-to-br ${level.color} p-4`}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-md mx-auto p-4 space-y-4">
 
-        {/* HEADER */}
-        <div className="text-center space-y-1">
+        <div className="text-center">
           <h1 className="text-xl font-bold">{settings.name}</h1>
-          <div className="text-3xl">{level.emoji}</div>
-          <div className="text-sm font-medium">{level.name}</div>
-
-          {/* STAR BAR */}
-          <div className="space-y-1">
-            <div className="flex justify-center gap-1">
-              {[...Array(7)].map((_, i) => (
-                <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>
-                  ⭐
-                </span>
-              ))}
-            </div>
-            <div className="text-xs text-gray-500">
-              {star} / 7 · 👑 {crown}
-            </div>
+          <div className="text-4xl">{level.emoji}</div>
+          <div className="font-semibold">{level.name}</div>
+          <div className="text-sm text-yellow-500">
+            ⭐ {star}/{settings.weeklyStarTarget} · 👑 {crown}
           </div>
         </div>
 
-        {/* TABS */}
         <div className="grid grid-cols-4 gap-1">
-          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map(t => (
+          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map((t) => (
             <button
               key={t}
-              onClick={() => {
-                setTab(t);
-                setPinOK(false);
-              }}
-              className={`p-2 rounded ${tab === t ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+              onClick={() => setTab(t)}
+              className={`p-2 rounded-xl text-sm ${
+                tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"
+              }`}
             >
               {t}
             </button>
           ))}
         </div>
 
-        {/* TODAY */}
         {tab === "BUGÜN" && (
           <>
-            <div className="bg-blue-50 p-2 rounded text-center">
+            <div className="bg-indigo-50 p-2 rounded text-center font-semibold">
               {total} / {settings.limit} dk
             </div>
 
             <Counter label="Sabah" v={sabah} set={setSabah} step={settings.step} />
-            <Counter label="Öğle" v={ogle} set={setOgle} step={settings.step} />
+            <Counter label="Öğle / İkindi" v={ogle} set={setOgle} step={settings.step} />
             <Counter label="Akşam" v={aksam} set={setAksam} step={settings.step} />
 
-            <button onClick={completeDay} className="w-full bg-green-600 text-white p-2 rounded">
-              GÜNÜ TAMAMLA
+            <button
+              onClick={completeDay}
+              className="w-full bg-indigo-600 text-white p-3 rounded-xl font-bold"
+            >
+              GÜNÜ BİTİR
             </button>
           </>
         )}
 
-        {/* HISTORY */}
         {tab === "GEÇMİŞ" && (
           <div className="space-y-2 text-sm">
-            {history.length === 0 && <p className="text-center text-gray-500">Kayıt yok</p>}
+            {history.length === 0 && <p className="text-center text-gray-400">Kayıt yok</p>}
             {history.map((h, i) => (
-              <div key={i} className="bg-gray-50 p-2 rounded flex justify-between">
+              <div key={i} className="flex justify-between bg-gray-100 p-2 rounded">
                 <span>{h.date}</span>
                 <span>{h.emoji} {h.total} dk</span>
               </div>
@@ -197,107 +150,46 @@ export default function App() {
           </div>
         )}
 
-        {/* ANALYSIS */}
         {tab === "ANALİZ" && (
           <div className="text-sm space-y-2">
             <div>Toplam gün: <b>{history.length}</b></div>
-            <div>Günlük ortalama: <b>{avg} dk</b></div>
-            <div>Efsane gün: <b>{efsaneCount}</b></div>
-            <div>Hedef: <b>7 ⭐ = 👑</b></div>
+            <div>
+              Efsane gün: <b>{history.filter(h => h.level === "Efsane").length}</b>
+            </div>
+            <div>Haftalık hedef: <b>{settings.weeklyStarTarget} ⭐</b></div>
           </div>
         )}
 
-        {/* SETTINGS */}
         {tab === "AYAR" && (
-          !pinOK ? (
-            <>
-              <input
-                type="password"
-                placeholder="PIN"
-                value={pinInput}
-                onChange={e => setPinInput(e.target.value)}
-                className="border p-2 w-full"
-              />
-              <button
-                onClick={() => pinInput === settings.pin ? setPinOK(true) : alert("Yanlış PIN")}
-                className="w-full bg-blue-600 text-white p-2 rounded"
-              >
-                GİRİŞ
-              </button>
-            </>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <label>Çocuk adı</label>
-              <input
-                value={settings.name}
-                onChange={e => setSettings({ ...settings, name: e.target.value })}
-                className="border p-2 w-full"
-              />
+          <div className="text-sm space-y-2">
+            <label>Çocuk Adı</label>
+            <input
+              className="border p-2 w-full rounded"
+              value={settings.name}
+              onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+            />
 
-              <label>Günlük limit (dk)</label>
-              <input
-                type="number"
-                value={settings.limit}
-                onChange={e => setSettings({ ...settings, limit: +e.target.value })}
-                className="border p-2 w-full"
-              />
-
-              <label>Artış adımı</label>
-              <select
-                value={settings.step}
-                onChange={e => setSettings({ ...settings, step: +e.target.value })}
-                className="border p-2 w-full"
-              >
-                <option value={5}>+5 dk</option>
-                <option value={10}>+10 dk</option>
-                <option value={15}>+15 dk</option>
-              </select>
-
-              <label>Yeni PIN</label>
-              <input
-                type="password"
-                onChange={e => setSettings({ ...settings, pin: e.target.value })}
-                className="border p-2 w-full"
-              />
-            </div>
-          )
+            <label>Günlük Limit</label>
+            <input
+              type="number"
+              className="border p-2 w-full rounded"
+              value={settings.limit}
+              onChange={(e) => setSettings({ ...settings, limit: +e.target.value })}
+            />
+          </div>
         )}
       </div>
-
-      {/* RESULT POPUP */}
-      {showResult && lastResult && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-72 text-center space-y-3 shadow-lg">
-            <div className="text-4xl">{lastResult.emoji}</div>
-            <div className="font-bold text-lg">{lastResult.levelName}</div>
-            <div className="text-sm text-gray-600">
-              Bugün toplam <b>{lastResult.total} dk</b>
-            </div>
-
-            {lastResult.starWon && <div className="text-yellow-500 font-semibold">⭐ +1 kazandın!</div>}
-            {lastResult.crownWon && <div className="text-purple-600 font-semibold">👑 Taç kazandın!</div>}
-            {!lastResult.starWon && <div className="text-gray-500 text-sm">Yarın daha iyisi olabilir 💪</div>}
-
-            <button
-              onClick={() => setShowResult(false)}
-              className="w-full bg-blue-600 text-white rounded p-2 mt-2"
-            >
-              TAMAM
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 function Counter({ label, v, set, step }) {
   return (
-    <div className="flex justify-between bg-gray-50 p-2 rounded">
+    <div className="flex justify-between items-center bg-gray-100 p-2 rounded-xl">
       <span>{label}</span>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <button onClick={() => set(Math.max(0, v - step))}>−</button>
-        <span>{v}</span>
+        <span className="w-6 text-center">{v}</span>
         <button onClick={() => set(v + step)}>+</button>
       </div>
     </div>
