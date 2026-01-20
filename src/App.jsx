@@ -1,23 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 
-/* === STORAGE KEYS (SABİT) === */
+/* STORAGE KEYS */
 const K_TODAY = "app_v2_today";
 const K_HISTORY = "app_v2_history";
 const K_SETTINGS = "app_v2_settings";
 const K_REWARD = "app_v2_rewards";
 
-/* === DEFAULT SETTINGS === */
+/* DEFAULT SETTINGS */
 const DEFAULT_SETTINGS = {
   name: "Çocuk",
   limit: 120,
   step: 5,
-  pin: "1234",
   weeklyStarTarget: 7,
   levels: {
-    efsane: { max: 80, emoji: "🤩", color: "from-purple-600 to-indigo-700" },
-    iyi: { max: 100, emoji: "🙂", color: "from-green-500 to-emerald-600" },
-    sinirda: { max: 120, emoji: "😐", color: "from-yellow-500 to-orange-500" },
-    asti: { max: 9999, emoji: "😵", color: "from-red-500 to-rose-600" },
+    efsane: { ratio: 0.65, emoji: "🤩", color: "from-purple-600 to-indigo-700" },
+    iyi: { ratio: 0.85, emoji: "🙂", color: "from-green-500 to-emerald-600" },
+    sinirda: { ratio: 1.0, emoji: "😐", color: "from-yellow-500 to-orange-500" },
+    asti: { ratio: 999, emoji: "😵", color: "from-red-500 to-rose-600" },
   },
 };
 
@@ -34,62 +33,63 @@ export default function App() {
   const [star, setStar] = useState(0);
   const [crown, setCrown] = useState(0);
 
-  /* UNDO STATE */
   const [deletedItem, setDeletedItem] = useState(null);
   const undoTimer = useRef(null);
 
   const total = sabah + ogle + aksam;
 
-  /* === LOAD === */
+  /* LOAD */
   useEffect(() => {
     setHistory(JSON.parse(localStorage.getItem(K_HISTORY)) || []);
     setSettings(JSON.parse(localStorage.getItem(K_SETTINGS)) || DEFAULT_SETTINGS);
-
-    const today = JSON.parse(localStorage.getItem(K_TODAY)) || {};
-    setSabah(today.sabah || 0);
-    setOgle(today.ogle || 0);
-    setAksam(today.aksam || 0);
-
     const r = JSON.parse(localStorage.getItem(K_REWARD)) || {};
     setStar(r.star || 0);
     setCrown(r.crown || 0);
   }, []);
 
-  /* === SAVE === */
+  /* SAVE */
   useEffect(() => {
-    localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
     localStorage.setItem(K_HISTORY, JSON.stringify(history));
     localStorage.setItem(K_SETTINGS, JSON.stringify(settings));
     localStorage.setItem(K_REWARD, JSON.stringify({ star, crown }));
-  }, [sabah, ogle, aksam, history, settings, star, crown]);
+    localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
+  }, [history, settings, star, crown, sabah, ogle, aksam]);
 
-  /* === LEVEL === */
-  function getLevel() {
+  /* LEVEL (LIMIT-AWARE) */
+  function getLevel(totalValue = total) {
     const l = settings.levels;
-    if (total <= l.efsane.max) return { key: "efsane", name: "Efsane", ...l.efsane };
-    if (total <= l.iyi.max) return { key: "iyi", name: "İyi", ...l.iyi };
-    if (total <= l.sinirda.max) return { key: "sinirda", name: "Sınırda", ...l.sinirda };
+    const limit = settings.limit;
+
+    if (totalValue <= limit * l.efsane.ratio)
+      return { key: "efsane", name: "Efsane", ...l.efsane };
+    if (totalValue <= limit * l.iyi.ratio)
+      return { key: "iyi", name: "İyi", ...l.iyi };
+    if (totalValue <= limit * l.sinirda.ratio)
+      return { key: "sinirda", name: "Sınırda", ...l.sinirda };
     return { key: "asti", name: "Aştı", ...l.asti };
   }
 
   const level = getLevel();
 
-  /* === COMPLETE DAY === */
+  /* COMPLETE DAY */
   function completeDay() {
+    const recordLevel = getLevel(total);
+
     const record = {
       id: Date.now(),
       date: new Date().toLocaleDateString("tr-TR"),
       total,
-      level: level.name,
-      emoji: level.emoji,
+      level: recordLevel.name,
+      key: recordLevel.key,
+      emoji: recordLevel.emoji,
     };
 
-    setHistory((p) => [record, ...p]);
+    setHistory(p => [record, ...p]);
 
-    if (level.key === "efsane") {
-      setStar((s) => {
+    if (record.key === "efsane") {
+      setStar(s => {
         if (s + 1 >= settings.weeklyStarTarget) {
-          setCrown((c) => c + 1);
+          setCrown(c => c + 1);
           return 0;
         }
         return s + 1;
@@ -101,234 +101,101 @@ export default function App() {
     setAksam(0);
   }
 
-  /* === DELETE WITH UNDO === */
+  /* DELETE WITH STAR/TAÇ FIX */
   function deleteRecord(item) {
-    setHistory((prev) => prev.filter((h) => h.id !== item.id));
-
+    setHistory(prev => prev.filter(h => h.id !== item.id));
     setDeletedItem(item);
 
-    if (undoTimer.current) clearTimeout(undoTimer.current);
+    if (item.key === "efsane") {
+      setStar(s => {
+        if (s > 0) return s - 1;
+        if (crown > 0) {
+          setCrown(c => c - 1);
+          return settings.weeklyStarTarget - 1;
+        }
+        return 0;
+      });
+    }
 
-    undoTimer.current = setTimeout(() => {
-      setDeletedItem(null);
-    }, 10000);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setDeletedItem(null), 10000);
   }
 
   function undoDelete() {
     if (!deletedItem) return;
-    setHistory((prev) => [deletedItem, ...prev]);
+    setHistory(prev => [deletedItem, ...prev]);
+
+    if (deletedItem.key === "efsane") {
+      setStar(s => {
+        if (s + 1 >= settings.weeklyStarTarget) {
+          setCrown(c => c + 1);
+          return 0;
+        }
+        return s + 1;
+      });
+    }
+
     setDeletedItem(null);
     clearTimeout(undoTimer.current);
   }
 
+  /* UI */
   return (
     <div className={`min-h-screen bg-gradient-to-br ${level.color} p-4`}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-md mx-auto p-4 space-y-4">
+      <div className="bg-white rounded-xl shadow max-w-md mx-auto p-4 space-y-4">
 
-        {/* HEADER */}
-        <div className="text-center space-y-1">
-          <h1 className="text-xl font-bold">{settings.name}</h1>
+        <div className="text-center">
+          <h1 className="font-bold">{settings.name}</h1>
           <div className="text-3xl">{level.emoji}</div>
-          <div className="font-medium">{level.name}</div>
-
-          <div className="flex justify-center gap-1">
-            {Array.from({ length: settings.weeklyStarTarget }).map((_, i) => (
-              <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>
-                ⭐
-              </span>
-            ))}
-          </div>
-
-          <div className="text-xs text-gray-500">
-            {star}/{settings.weeklyStarTarget} · 👑 {crown}
-          </div>
+          <div>{level.name}</div>
+          <div className="text-sm">⭐ {star} / 👑 {crown}</div>
         </div>
 
-        {/* TABS */}
         <div className="grid grid-cols-4 gap-1">
-          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`p-2 rounded ${
-                tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"
-              }`}
-            >
+          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              className={tab === t ? "bg-indigo-600 text-white p-2" : "bg-gray-200 p-2"}>
               {t}
             </button>
           ))}
         </div>
 
-        {/* BUGÜN */}
         {tab === "BUGÜN" && (
           <>
-            <div className="bg-indigo-50 p-2 rounded text-center">
-              {total} / {settings.limit} dk
-            </div>
-
+            <div className="text-center">{total} / {settings.limit} dk</div>
             <Counter label="Sabah" v={sabah} set={setSabah} step={settings.step} />
             <Counter label="Öğle" v={ogle} set={setOgle} step={settings.step} />
             <Counter label="Akşam" v={aksam} set={setAksam} step={settings.step} />
-
-            <button
-              onClick={completeDay}
-              className="w-full bg-indigo-600 text-white p-2 rounded"
-            >
+            <button onClick={completeDay} className="w-full bg-indigo-600 text-white p-2">
               GÜNÜ TAMAMLA
             </button>
           </>
         )}
 
-        {/* GEÇMİŞ */}
-        {tab === "GEÇMİŞ" && (
-          <div className="space-y-2 text-sm">
-            {history.length === 0 && (
-              <p className="text-center text-gray-400">Kayıt yok</p>
-            )}
-
-            {history.map((h) => (
-              <div
-                key={h.id}
-                className="flex justify-between items-center bg-gray-100 p-2 rounded"
-              >
-                <div>
-                  <div>{h.date}</div>
-                  <div className="text-xs text-gray-500">
-                    {h.emoji} {h.total} dk
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => deleteRecord(h)}
-                  className="text-red-500 text-lg"
-                  title="Sil"
-                >
-                  🗑️
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ANALİZ */}
-        {tab === "ANALİZ" && (
-          history.length === 0 ? (
-            <p className="text-center text-gray-400">Analiz için veri yok</p>
-          ) : (
-            <AnalysisPanel history={history} settings={settings} star={star} />
-          )
-        )}
-
-        {/* AYAR */}
-        {tab === "AYAR" && (
-          <div className="space-y-2 text-sm">
-            <label>Çocuk Adı</label>
-            <input
-              className="border p-2 w-full"
-              value={settings.name}
-              onChange={(e) =>
-                setSettings({ ...settings, name: e.target.value })
-              }
-            />
-
-            <label>Günlük Limit</label>
-            <input
-              type="number"
-              className="border p-2 w-full"
-              value={settings.limit}
-              onChange={(e) =>
-                setSettings({ ...settings, limit: +e.target.value })
-              }
-            />
-          </div>
-        )}
-      </div>
-
-      {/* UNDO BAR */}
-      {deletedItem && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full flex items-center gap-4 shadow-lg">
-          <span>Kayıt silindi</span>
-          <button
-            onClick={undoDelete}
-            className="font-bold underline"
-          >
-            GERİ AL
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* === ANALYSIS PANEL === */
-function AnalysisPanel({ history, settings, star }) {
-  const levels = settings.levels;
-
-  const counts = {
-    efsane: history.filter((h) => h.level === "Efsane").length,
-    iyi: history.filter((h) => h.level === "İyi").length,
-    sinirda: history.filter((h) => h.level === "Sınırda").length,
-    asti: history.filter((h) => h.level === "Aştı").length,
-  };
-
-  const last7 = history.slice(0, 7).reverse();
-  const max = Math.max(...last7.map((d) => d.total), 1);
-
-  return (
-    <div className="space-y-4 text-sm">
-      <div>
-        <h3 className="font-bold">Seviye Dağılımı</h3>
-        {Object.entries(counts).map(([k, v]) => (
-          <div key={k}>
-            <div className="flex justify-between text-xs">
-              <span>{k}</span>
-              <span>{v}</span>
-            </div>
-            <div className="bg-gray-200 h-2 rounded">
-              <div
-                className={`h-2 rounded bg-gradient-to-r ${levels[k].color}`}
-                style={{ width: `${(v / history.length) * 100}%` }}
-              />
-            </div>
+        {tab === "GEÇMİŞ" && history.map(h => (
+          <div key={h.id} className="flex justify-between bg-gray-100 p-2">
+            <span>{h.date} · {h.emoji} {h.total}</span>
+            <button onClick={() => deleteRecord(h)}>🗑️</button>
           </div>
         ))}
-      </div>
 
-      <div>
-        <h3 className="font-bold">Son 7 Gün</h3>
-        <div className="flex items-end gap-1 h-24">
-          {last7.map((d, i) => (
-            <div key={i} className="flex-1">
-              <div
-                className="bg-indigo-500 rounded"
-                style={{ height: `${(d.total / max) * 100}%` }}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <h3 className="font-bold">Haftalık Yıldız</h3>
-        <div className="bg-gray-200 h-3 rounded">
-          <div
-            className="bg-yellow-400 h-3 rounded"
-            style={{ width: `${(star / settings.weeklyStarTarget) * 100}%` }}
-          />
-        </div>
+        {deletedItem && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded">
+            Kayıt silindi <button onClick={undoDelete} className="underline">GERİ AL</button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* === COUNTER === */
 function Counter({ label, v, set, step }) {
   return (
-    <div className="flex justify-between bg-gray-100 p-2 rounded">
+    <div className="flex justify-between bg-gray-100 p-2">
       <span>{label}</span>
-      <div className="flex gap-2">
+      <div>
         <button onClick={() => set(Math.max(0, v - step))}>−</button>
-        <span>{v}</span>
+        <span className="mx-2">{v}</span>
         <button onClick={() => set(v + step)}>+</button>
       </div>
     </div>
