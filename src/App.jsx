@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 
-/* === STORAGE KEYS (SABİT – ARTIK DEĞİŞMEZ) === */
+/* === FORCE UPDATE === */
+const APP_VERSION = "1.0.4";
+
+/* === STORAGE KEYS (SABİT) === */
 const K_TODAY = "app_v2_today";
 const K_HISTORY = "app_v2_history";
 const K_SETTINGS = "app_v2_settings";
@@ -38,6 +41,15 @@ export default function App() {
   const [pinInput, setPinInput] = useState("");
 
   const total = sabah + ogle + aksam;
+
+  /* === FORCE CACHE BREAK === */
+  useEffect(() => {
+    const v = localStorage.getItem("app_version");
+    if (v !== APP_VERSION) {
+      localStorage.setItem("app_version", APP_VERSION);
+      window.location.reload(true);
+    }
+  }, []);
 
   /* === LOAD === */
   useEffect(() => {
@@ -109,16 +121,14 @@ export default function App() {
           <div className="text-3xl">{level.emoji}</div>
           <div className="font-medium">{level.name}</div>
 
-          {/* STAR BAR */}
-          <div className="flex justify-center gap-1 mt-1">
+          <div className="flex justify-center gap-1">
             {Array.from({ length: settings.weeklyStarTarget }).map((_, i) => (
-              <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>
-                ⭐
-              </span>
+              <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>⭐</span>
             ))}
           </div>
-          <div className="text-xs text-gray-500">
-            {star}/{settings.weeklyStarTarget} · 👑 {crown}
+
+          <div className="text-xs text-gray-400">
+            {star}/{settings.weeklyStarTarget} · 👑 {crown} · v{APP_VERSION}
           </div>
         </div>
 
@@ -131,9 +141,7 @@ export default function App() {
                 setTab(t);
                 setPinOK(false);
               }}
-              className={`p-2 rounded ${
-                tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"
-              }`}
+              className={`p-2 rounded ${tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"}`}
             >
               {t}
             </button>
@@ -176,7 +184,7 @@ export default function App() {
         {/* ANALİZ */}
         {tab === "ANALİZ" && (
           history.length === 0 ? (
-            <p className="text-center text-gray-400">Henüz analiz için veri yok</p>
+            <p className="text-center text-gray-400">Henüz analiz yok</p>
           ) : (
             <AnalysisPanel history={history} settings={settings} star={star} />
           )
@@ -194,11 +202,7 @@ export default function App() {
                 className="border p-2 w-full"
               />
               <button
-                onClick={() =>
-                  pinInput === settings.pin
-                    ? setPinOK(true)
-                    : alert("Yanlış PIN")
-                }
+                onClick={() => pinInput === settings.pin ? setPinOK(true) : alert("Yanlış PIN")}
                 className="w-full bg-indigo-600 text-white p-2 rounded"
               >
                 GİRİŞ
@@ -210,9 +214,7 @@ export default function App() {
               <input
                 className="border p-2 w-full"
                 value={settings.name}
-                onChange={e =>
-                  setSettings({ ...settings, name: e.target.value })
-                }
+                onChange={e => setSettings({ ...settings, name: e.target.value })}
               />
 
               <label>Günlük Limit</label>
@@ -220,18 +222,14 @@ export default function App() {
                 type="number"
                 className="border p-2 w-full"
                 value={settings.limit}
-                onChange={e =>
-                  setSettings({ ...settings, limit: +e.target.value })
-                }
+                onChange={e => setSettings({ ...settings, limit: +e.target.value })}
               />
 
               <label>Yeni PIN</label>
               <input
                 type="password"
                 className="border p-2 w-full"
-                onChange={e =>
-                  setSettings({ ...settings, pin: e.target.value })
-                }
+                onChange={e => setSettings({ ...settings, pin: e.target.value })}
               />
             </div>
           )
@@ -241,10 +239,9 @@ export default function App() {
   );
 }
 
-/* === ANALYSIS PANEL (BOŞ KALAMAZ) === */
+/* === ANALYSIS PANEL === */
 function AnalysisPanel({ history, settings, star }) {
   const levels = settings.levels;
-
   const counts = {
     efsane: history.filter(h => h.level === "Efsane").length,
     iyi: history.filter(h => h.level === "İyi").length,
@@ -259,12 +256,11 @@ function AnalysisPanel({ history, settings, star }) {
     <div className="space-y-4 text-sm">
 
       <div>
-        <h3 className="font-bold mb-1">Seviye Dağılımı</h3>
+        <h3 className="font-bold">Seviye Dağılımı</h3>
         {Object.entries(counts).map(([k, v]) => (
-          <div key={k} className="mb-1">
+          <div key={k}>
             <div className="flex justify-between text-xs">
-              <span>{k}</span>
-              <span>{v}</span>
+              <span>{k}</span><span>{v}</span>
             </div>
             <div className="bg-gray-200 h-2 rounded">
               <div
@@ -277,22 +273,21 @@ function AnalysisPanel({ history, settings, star }) {
       </div>
 
       <div>
-        <h3 className="font-bold mb-1">Son 7 Gün</h3>
+        <h3 className="font-bold">Son 7 Gün</h3>
         <div className="flex items-end gap-1 h-24">
           {last7.map((d, i) => (
-            <div key={i} className="flex-1 text-center">
+            <div key={i} className="flex-1">
               <div
                 className="bg-indigo-500 rounded"
                 style={{ height: `${(d.total / max) * 100}%` }}
               />
-              <div className="text-[10px]">{d.total}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div>
-        <h3 className="font-bold mb-1">Haftalık Yıldız</h3>
+        <h3 className="font-bold">Haftalık Yıldız</h3>
         <div className="bg-gray-200 h-3 rounded">
           <div
             className="bg-yellow-400 h-3 rounded"
