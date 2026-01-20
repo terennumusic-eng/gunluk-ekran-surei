@@ -12,21 +12,19 @@ const DEFAULT_SETTINGS = {
   step: 5,
 };
 
-/* SEVİYE ORANLARI */
+/* LEVELS (ORANLI) */
 const LEVELS = {
-  efsane: { ratio: 0.65, emoji: "🤩", color: "from-purple-600 to-indigo-700" },
-  iyi: { ratio: 0.85, emoji: "🙂", color: "from-green-500 to-emerald-600" },
-  sinirda: { ratio: 1.0, emoji: "😐", color: "from-yellow-500 to-orange-500" },
-  asti: { ratio: 999, emoji: "😵", color: "from-red-500 to-rose-600" },
+  efsane: { ratio: 0.65, emoji: "🤩", label: "Efsane", bg: "bg-purple-100", bar: "bg-purple-600" },
+  iyi: { ratio: 0.85, emoji: "🙂", label: "İyi", bg: "bg-green-100", bar: "bg-green-500" },
+  sinirda: { ratio: 1.0, emoji: "😐", label: "Sınırda", bg: "bg-yellow-100", bar: "bg-yellow-400" },
+  asti: { ratio: 999, emoji: "😵", label: "Aşırı", bg: "bg-red-100", bar: "bg-red-500" },
 };
 
 export default function App() {
   const [tab, setTab] = useState("BUGÜN");
-
   const [sabah, setSabah] = useState(0);
   const [ogle, setOgle] = useState(0);
   const [aksam, setAksam] = useState(0);
-
   const [history, setHistory] = useState([]);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
@@ -36,7 +34,6 @@ export default function App() {
   useEffect(() => {
     setHistory(JSON.parse(localStorage.getItem(K_HISTORY)) || []);
     setSettings(JSON.parse(localStorage.getItem(K_SETTINGS)) || DEFAULT_SETTINGS);
-
     const today = JSON.parse(localStorage.getItem(K_TODAY)) || {};
     setSabah(today.sabah || 0);
     setOgle(today.ogle || 0);
@@ -50,30 +47,26 @@ export default function App() {
     localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
   }, [history, settings, sabah, ogle, aksam]);
 
-  /* SEVİYE HESABI (ORANLI) */
+  /* LEVEL */
   function getLevel(totalValue) {
     const limit = settings.limit;
-
-    if (totalValue <= limit * LEVELS.efsane.ratio)
-      return { key: "efsane", name: "Efsane", ...LEVELS.efsane };
-    if (totalValue <= limit * LEVELS.iyi.ratio)
-      return { key: "iyi", name: "İyi", ...LEVELS.iyi };
-    if (totalValue <= limit * LEVELS.sinirda.ratio)
-      return { key: "sinirda", name: "Sınırda", ...LEVELS.sinirda };
-    return { key: "asti", name: "Aştı", ...LEVELS.asti };
+    if (totalValue <= limit * LEVELS.efsane.ratio) return { key: "efsane", ...LEVELS.efsane };
+    if (totalValue <= limit * LEVELS.iyi.ratio) return { key: "iyi", ...LEVELS.iyi };
+    if (totalValue <= limit * LEVELS.sinirda.ratio) return { key: "sinirda", ...LEVELS.sinirda };
+    return { key: "asti", ...LEVELS.asti };
   }
 
   const level = getLevel(total);
 
-  /* YILDIZ / TAÇ – GEÇMİŞTEN HESAP */
+  /* REWARDS (GEÇMİŞTEN) */
   const efsaneCount = history.filter(h => h.key === "efsane").length;
   const crown = Math.floor(efsaneCount / 7);
   const star = efsaneCount % 7;
+  const kalan = 7 - star;
 
-  /* GÜNÜ TAMAMLA */
+  /* COMPLETE DAY */
   function completeDay() {
     const l = getLevel(total);
-
     const record = {
       id: Date.now(),
       date: new Date().toLocaleDateString("tr-TR"),
@@ -81,29 +74,36 @@ export default function App() {
       key: l.key,
       emoji: l.emoji,
     };
-
     setHistory(prev => [record, ...prev]);
-
     setSabah(0);
     setOgle(0);
     setAksam(0);
   }
 
-  /* GEÇMİŞTEN SİL */
   function deleteRecord(id) {
-    if (!confirm("Bu kaydı silmek istiyor musun?")) return;
+    if (!confirm("Bu kayıt silinsin mi?")) return;
     setHistory(prev => prev.filter(h => h.id !== id));
   }
 
+  /* ANALYSIS DATA */
+  const last7 = history.slice(0, 7).reverse();
+  const maxVal = Math.max(...last7.map(d => d.total), settings.limit);
+
+  const counts = {
+    efsane: history.filter(h => h.key === "efsane").length,
+    iyi: history.filter(h => h.key === "iyi").length,
+    sinirda: history.filter(h => h.key === "sinirda").length,
+    asti: history.filter(h => h.key === "asti").length,
+  };
+
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${level.color} p-4`}>
+    <div className="min-h-screen bg-gray-100 p-4">
       <div className="bg-white rounded-xl shadow max-w-md mx-auto p-4 space-y-4">
 
         {/* HEADER */}
         <div className="text-center">
           <h1 className="font-bold">{settings.name}</h1>
           <div className="text-3xl">{level.emoji}</div>
-          <div>{level.name}</div>
           <div className="text-sm">⭐ {star} · 👑 {crown}</div>
         </div>
 
@@ -134,25 +134,49 @@ export default function App() {
         )}
 
         {/* GEÇMİŞ */}
-        {tab === "GEÇMİŞ" && (
-          history.length === 0
-            ? <p className="text-center text-gray-400">Kayıt yok</p>
-            : history.map(h => (
-              <div key={h.id} className="flex justify-between bg-gray-100 p-2">
-                <span>{h.date} · {h.emoji} {h.total}</span>
-                <button onClick={() => deleteRecord(h.id)}>🗑️</button>
-              </div>
-            ))
-        )}
+        {tab === "GEÇMİŞ" && history.map(h => (
+          <div key={h.id} className="flex justify-between bg-gray-100 p-2">
+            <span>{h.date} · {h.emoji} {h.total}</span>
+            <button onClick={() => deleteRecord(h.id)}>🗑️</button>
+          </div>
+        ))}
 
         {/* ANALİZ */}
         {tab === "ANALİZ" && (
-          <div className="text-sm space-y-2">
-            <div>Toplam gün: <b>{history.length}</b></div>
-            <div>Efsane gün: <b>{efsaneCount}</b></div>
-            <div>Yıldız: <b>{star}</b></div>
-            <div>Taç: <b>{crown}</b></div>
-          </div>
+          history.length === 0 ? (
+            <p className="text-center text-gray-400">Analiz için gün ekleyin</p>
+          ) : (
+            <>
+              {/* SUMMARY CARDS */}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {Object.keys(LEVELS).map(k => (
+                  <div key={k} className={`${LEVELS[k].bg} p-2 rounded text-center`}>
+                    <div className="font-bold">{LEVELS[k].label}</div>
+                    <div>{counts[k]} gün</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* BAR GRAPH */}
+              <div className="flex items-end gap-1 h-40">
+                {last7.map((d, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center">
+                    <div
+                      className={`${LEVELS[d.key].bar} w-full rounded`}
+                      style={{ height: `${(d.total / maxVal) * 100}%` }}
+                    />
+                    <span className="text-xs mt-1">{d.total}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* GOAL INFO */}
+              <div className="text-center text-sm">
+                Bu hafta <b>{last7.filter(d => d.key === "efsane").length}</b> efsane gün<br />
+                1 taç için <b>{kalan}</b> efsane gün kaldı
+              </div>
+            </>
+          )
         )}
 
         {/* AYAR */}
@@ -164,7 +188,6 @@ export default function App() {
               value={settings.name}
               onChange={e => setSettings({ ...settings, name: e.target.value })}
             />
-
             <label>Günlük Limit</label>
             <input
               type="number"
