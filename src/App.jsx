@@ -13,10 +13,10 @@ const DEFAULT_SETTINGS = {
   step: 5,
   pin: "1234",
   levels: {
-    efsane: { max: 90, emoji: "🤩" },
-    normal: { max: 120, emoji: "🙂" },
-    uzgun: { max: 180, emoji: "😞" },
-    asiri: { max: 9999, emoji: "😵" },
+    efsane: { max: 90, emoji: "🤩", bg: "bg-green-100" },
+    normal: { max: 120, emoji: "🙂", bg: "bg-blue-100" },
+    uzgun: { max: 180, emoji: "😞", bg: "bg-orange-100" },
+    asiri: { max: 9999, emoji: "😵", bg: "bg-red-100" },
   },
 };
 
@@ -70,10 +70,10 @@ export default function App() {
   /* LEVEL */
   function getLevel() {
     const l = settings.levels;
-    if (total <= l.efsane.max) return { key: "efsane", name: "Efsane", emoji: l.efsane.emoji };
-    if (total <= l.normal.max) return { key: "normal", name: "Normal", emoji: l.normal.emoji };
-    if (total <= l.uzgun.max) return { key: "uzgun", name: "Üzgün", emoji: l.uzgun.emoji };
-    return { key: "asiri", name: "Aşırı", emoji: l.asiri.emoji };
+    if (total <= l.efsane.max) return { key: "efsane", name: "Efsane", ...l.efsane };
+    if (total <= l.normal.max) return { key: "normal", name: "Normal", ...l.normal };
+    if (total <= l.uzgun.max) return { key: "uzgun", name: "Üzgün", ...l.uzgun };
+    return { key: "asiri", name: "Aşırı", ...l.asiri };
   }
 
   const level = getLevel();
@@ -127,14 +127,14 @@ export default function App() {
   const efsaneCount = history.filter(h => h.level === "Efsane").length;
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center p-4">
+    <div className={`min-h-screen flex justify-center p-4 ${level.bg}`}>
       <div className="bg-white w-full max-w-md rounded-xl shadow p-4 space-y-4">
 
         {/* HEADER */}
         <div className="text-center space-y-1">
           <h1 className="text-xl font-bold">{settings.name}</h1>
           <div className="text-3xl">{level.emoji}</div>
-          <div className="text-sm">{level.name}</div>
+          <div className="text-sm font-medium">{level.name}</div>
 
           {/* STAR BAR */}
           <div className="space-y-1">
