@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-/* === STORAGE KEYS (GERİYE DÖNÜK UYUMLU) === */
+/* === STORAGE KEYS (SABİT – ARTIK DEĞİŞMEZ) === */
 const K_TODAY = "app_v2_today";
 const K_HISTORY = "app_v2_history";
 const K_SETTINGS = "app_v2_settings";
@@ -39,7 +39,7 @@ export default function App() {
 
   const total = sabah + ogle + aksam;
 
-  /* === LOAD (ESKİ VERİLERİ OKUR) === */
+  /* === LOAD === */
   useEffect(() => {
     setHistory(JSON.parse(localStorage.getItem(K_HISTORY)) || []);
     setSettings(JSON.parse(localStorage.getItem(K_SETTINGS)) || DEFAULT_SETTINGS);
@@ -82,12 +82,12 @@ export default function App() {
       emoji: level.emoji,
     };
 
-    setHistory((p) => [record, ...p]);
+    setHistory(p => [record, ...p]);
 
     if (level.key === "efsane") {
-      setStar((s) => {
+      setStar(s => {
         if (s + 1 >= settings.weeklyStarTarget) {
-          setCrown((c) => c + 1);
+          setCrown(c => c + 1);
           return 0;
         }
         return s + 1;
@@ -108,14 +108,23 @@ export default function App() {
           <h1 className="text-xl font-bold">{settings.name}</h1>
           <div className="text-3xl">{level.emoji}</div>
           <div className="font-medium">{level.name}</div>
-          <div className="text-sm text-yellow-600">
-            ⭐ {star}/{settings.weeklyStarTarget} · 👑 {crown}
+
+          {/* STAR BAR */}
+          <div className="flex justify-center gap-1 mt-1">
+            {Array.from({ length: settings.weeklyStarTarget }).map((_, i) => (
+              <span key={i} className={i < star ? "text-yellow-400" : "text-gray-300"}>
+                ⭐
+              </span>
+            ))}
+          </div>
+          <div className="text-xs text-gray-500">
+            {star}/{settings.weeklyStarTarget} · 👑 {crown}
           </div>
         </div>
 
         {/* TABS */}
         <div className="grid grid-cols-4 gap-1">
-          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map((t) => (
+          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map(t => (
             <button
               key={t}
               onClick={() => {
@@ -166,7 +175,11 @@ export default function App() {
 
         {/* ANALİZ */}
         {tab === "ANALİZ" && (
-          <AnalysisPanel history={history} settings={settings} star={star} />
+          history.length === 0 ? (
+            <p className="text-center text-gray-400">Henüz analiz için veri yok</p>
+          ) : (
+            <AnalysisPanel history={history} settings={settings} star={star} />
+          )
         )}
 
         {/* AYAR */}
@@ -177,7 +190,7 @@ export default function App() {
                 type="password"
                 placeholder="PIN"
                 value={pinInput}
-                onChange={(e) => setPinInput(e.target.value)}
+                onChange={e => setPinInput(e.target.value)}
                 className="border p-2 w-full"
               />
               <button
@@ -197,7 +210,7 @@ export default function App() {
               <input
                 className="border p-2 w-full"
                 value={settings.name}
-                onChange={(e) =>
+                onChange={e =>
                   setSettings({ ...settings, name: e.target.value })
                 }
               />
@@ -207,7 +220,7 @@ export default function App() {
                 type="number"
                 className="border p-2 w-full"
                 value={settings.limit}
-                onChange={(e) =>
+                onChange={e =>
                   setSettings({ ...settings, limit: +e.target.value })
                 }
               />
@@ -216,7 +229,7 @@ export default function App() {
               <input
                 type="password"
                 className="border p-2 w-full"
-                onChange={(e) =>
+                onChange={e =>
                   setSettings({ ...settings, pin: e.target.value })
                 }
               />
@@ -228,11 +241,11 @@ export default function App() {
   );
 }
 
-/* === ANALYSIS PANEL === */
+/* === ANALYSIS PANEL (BOŞ KALAMAZ) === */
 function AnalysisPanel({ history, settings, star }) {
   const levels = settings.levels;
 
-  const levelCounts = {
+  const counts = {
     efsane: history.filter(h => h.level === "Efsane").length,
     iyi: history.filter(h => h.level === "İyi").length,
     sinirda: history.filter(h => h.level === "Sınırda").length,
@@ -240,23 +253,23 @@ function AnalysisPanel({ history, settings, star }) {
   };
 
   const last7 = history.slice(0, 7).reverse();
-  const maxDay = Math.max(...last7.map(d => d.total), 1);
+  const max = Math.max(...last7.map(d => d.total), 1);
 
   return (
-    <div className="space-y-6 text-sm">
+    <div className="space-y-4 text-sm">
 
       <div>
-        <h3 className="font-bold mb-2">Seviye Dağılımı</h3>
-        {Object.entries(levelCounts).map(([k, v]) => (
-          <div key={k} className="mb-2">
-            <div className="flex justify-between">
-              <span>{k.toUpperCase()}</span>
-              <span>{v} gün</span>
+        <h3 className="font-bold mb-1">Seviye Dağılımı</h3>
+        {Object.entries(counts).map(([k, v]) => (
+          <div key={k} className="mb-1">
+            <div className="flex justify-between text-xs">
+              <span>{k}</span>
+              <span>{v}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded h-3">
+            <div className="bg-gray-200 h-2 rounded">
               <div
-                className={`h-3 rounded bg-gradient-to-r ${levels[k].color}`}
-                style={{ width: `${(v / Math.max(history.length,1)) * 100}%` }}
+                className={`h-2 rounded bg-gradient-to-r ${levels[k].color}`}
+                style={{ width: `${(v / history.length) * 100}%` }}
               />
             </div>
           </div>
@@ -264,30 +277,27 @@ function AnalysisPanel({ history, settings, star }) {
       </div>
 
       <div>
-        <h3 className="font-bold mb-2">Son 7 Gün</h3>
-        <div className="flex items-end gap-2 h-32">
+        <h3 className="font-bold mb-1">Son 7 Gün</h3>
+        <div className="flex items-end gap-1 h-24">
           {last7.map((d, i) => (
             <div key={i} className="flex-1 text-center">
               <div
-                className="w-full rounded bg-indigo-500"
-                style={{ height: `${(d.total / maxDay) * 100}%` }}
+                className="bg-indigo-500 rounded"
+                style={{ height: `${(d.total / max) * 100}%` }}
               />
-              <div className="text-xs mt-1">{d.total}</div>
+              <div className="text-[10px]">{d.total}</div>
             </div>
           ))}
         </div>
       </div>
 
       <div>
-        <h3 className="font-bold mb-2">Haftalık Yıldız</h3>
-        <div className="w-full bg-gray-200 h-4 rounded">
+        <h3 className="font-bold mb-1">Haftalık Yıldız</h3>
+        <div className="bg-gray-200 h-3 rounded">
           <div
-            className="h-4 rounded bg-yellow-400"
+            className="bg-yellow-400 h-3 rounded"
             style={{ width: `${(star / settings.weeklyStarTarget) * 100}%` }}
           />
-        </div>
-        <div className="text-center mt-1">
-          ⭐ {star}/{settings.weeklyStarTarget}
         </div>
       </div>
 
