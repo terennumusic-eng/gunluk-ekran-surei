@@ -1,23 +1,19 @@
 import { useEffect, useState } from "react";
 
-/* STORAGE KEYS */
+/* STORAGE */
 const K_TODAY = "app_v2_today";
 const K_HISTORY = "app_v2_history";
 const K_SETTINGS = "app_v2_settings";
 
-/* DEFAULT SETTINGS */
-const DEFAULT_SETTINGS = {
-  name: "Çocuk",
-  limit: 120,
-  step: 5,
-};
+/* SETTINGS */
+const DEFAULT_SETTINGS = { name: "Çocuk", limit: 120, step: 5 };
 
-/* LEVELS (ORANLI) */
+/* LEVELS */
 const LEVELS = {
-  efsane: { ratio: 0.65, emoji: "🤩", label: "Efsane", bg: "bg-purple-100", bar: "bg-purple-600" },
-  iyi: { ratio: 0.85, emoji: "🙂", label: "İyi", bg: "bg-green-100", bar: "bg-green-500" },
-  sinirda: { ratio: 1.0, emoji: "😐", label: "Sınırda", bg: "bg-yellow-100", bar: "bg-yellow-400" },
-  asti: { ratio: 999, emoji: "😵", label: "Aşırı", bg: "bg-red-100", bar: "bg-red-500" },
+  efsane: { ratio: 0.65, emoji: "🤩", label: "Efsane", color: "bg-purple-600" },
+  iyi: { ratio: 0.85, emoji: "🙂", label: "İyi", color: "bg-green-500" },
+  sinirda: { ratio: 1.0, emoji: "😐", label: "Sınırda", color: "bg-yellow-400" },
+  asti: { ratio: 999, emoji: "😵", label: "Aşırı", color: "bg-red-500" },
 };
 
 export default function App() {
@@ -48,60 +44,49 @@ export default function App() {
   }, [history, settings, sabah, ogle, aksam]);
 
   /* LEVEL */
-  function getLevel(totalValue) {
+  function getLevel(val) {
     const limit = settings.limit;
-    if (totalValue <= limit * LEVELS.efsane.ratio) return { key: "efsane", ...LEVELS.efsane };
-    if (totalValue <= limit * LEVELS.iyi.ratio) return { key: "iyi", ...LEVELS.iyi };
-    if (totalValue <= limit * LEVELS.sinirda.ratio) return { key: "sinirda", ...LEVELS.sinirda };
+    if (val <= limit * LEVELS.efsane.ratio) return { key: "efsane", ...LEVELS.efsane };
+    if (val <= limit * LEVELS.iyi.ratio) return { key: "iyi", ...LEVELS.iyi };
+    if (val <= limit * LEVELS.sinirda.ratio) return { key: "sinirda", ...LEVELS.sinirda };
     return { key: "asti", ...LEVELS.asti };
   }
 
   const level = getLevel(total);
 
-  /* REWARDS (GEÇMİŞTEN) */
+  /* REWARD */
   const efsaneCount = history.filter(h => h.key === "efsane").length;
   const crown = Math.floor(efsaneCount / 7);
   const star = efsaneCount % 7;
   const kalan = 7 - star;
 
-  /* COMPLETE DAY */
   function completeDay() {
     const l = getLevel(total);
-    const record = {
+    setHistory(p => [{
       id: Date.now(),
       date: new Date().toLocaleDateString("tr-TR"),
       total,
       key: l.key,
       emoji: l.emoji,
-    };
-    setHistory(prev => [record, ...prev]);
-    setSabah(0);
-    setOgle(0);
-    setAksam(0);
+    }, ...p]);
+    setSabah(0); setOgle(0); setAksam(0);
   }
 
   function deleteRecord(id) {
-    if (!confirm("Bu kayıt silinsin mi?")) return;
-    setHistory(prev => prev.filter(h => h.id !== id));
+    if (!confirm("Silinsin mi?")) return;
+    setHistory(p => p.filter(h => h.id !== id));
   }
 
-  /* ANALYSIS DATA */
+  /* ANALYSIS */
   const last7 = history.slice(0, 7).reverse();
   const maxVal = Math.max(...last7.map(d => d.total), settings.limit);
-
-  const counts = {
-    efsane: history.filter(h => h.key === "efsane").length,
-    iyi: history.filter(h => h.key === "iyi").length,
-    sinirda: history.filter(h => h.key === "sinirda").length,
-    asti: history.filter(h => h.key === "asti").length,
-  };
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="bg-white rounded-xl shadow max-w-md mx-auto p-4 space-y-4">
 
         {/* HEADER */}
-        <div className="text-center">
+        <div className={`text-center text-white p-3 rounded ${level.color}`}>
           <h1 className="font-bold">{settings.name}</h1>
           <div className="text-3xl">{level.emoji}</div>
           <div className="text-sm">⭐ {star} · 👑 {crown}</div>
@@ -114,9 +99,7 @@ export default function App() {
               key={t}
               onClick={() => setTab(t)}
               className={tab === t ? "bg-indigo-600 text-white p-2" : "bg-gray-200 p-2"}
-            >
-              {t}
-            </button>
+            >{t}</button>
           ))}
         </div>
 
@@ -144,36 +127,24 @@ export default function App() {
         {/* ANALİZ */}
         {tab === "ANALİZ" && (
           history.length === 0 ? (
-            <p className="text-center text-gray-400">Analiz için gün ekleyin</p>
+            <p className="text-center text-gray-400">Veri yok</p>
           ) : (
             <>
-              {/* SUMMARY CARDS */}
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                {Object.keys(LEVELS).map(k => (
-                  <div key={k} className={`${LEVELS[k].bg} p-2 rounded text-center`}>
-                    <div className="font-bold">{LEVELS[k].label}</div>
-                    <div>{counts[k]} gün</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* BAR GRAPH */}
-              <div className="flex items-end gap-1 h-40">
+              <div className="flex items-end gap-2 h-40">
                 {last7.map((d, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center">
                     <div
-                      className={`${LEVELS[d.key].bar} w-full rounded`}
+                      className={`${LEVELS[d.key].color} w-full rounded`}
                       style={{ height: `${(d.total / maxVal) * 100}%` }}
                     />
-                    <span className="text-xs mt-1">{d.total}</span>
+                    <span className="text-xs mt-1">G{i + 1}</span>
                   </div>
                 ))}
               </div>
 
-              {/* GOAL INFO */}
               <div className="text-center text-sm">
                 Bu hafta <b>{last7.filter(d => d.key === "efsane").length}</b> efsane gün<br />
-                1 taç için <b>{kalan}</b> efsane gün kaldı
+                1 taç için <b>{kalan}</b> gün kaldı
               </div>
             </>
           )
