@@ -51,6 +51,44 @@ export default function App() {
     localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
   }, [history, settings, sabah, ogle, aksam]);
 
+/* SAFE AUTO DAY CHANGE (ONCE AT LOAD) */
+useEffect(() => {
+  const savedDate = localStorage.getItem("app_v2_last_date");
+  const today = new Date().toDateString();
+
+  if (!savedDate) {
+    localStorage.setItem("app_v2_last_date", today);
+    return;
+  }
+
+  if (savedDate !== today) {
+    const yesterdayTotal =
+      (JSON.parse(localStorage.getItem(K_TODAY))?.sabah || 0) +
+      (JSON.parse(localStorage.getItem(K_TODAY))?.ogle || 0) +
+      (JSON.parse(localStorage.getItem(K_TODAY))?.aksam || 0);
+
+    if (yesterdayTotal > 0) {
+      const l = getLevel(yesterdayTotal);
+
+      const record = {
+        id: Date.now(),
+        date: new Date(savedDate).toLocaleDateString("tr-TR"),
+        total: yesterdayTotal,
+        key: l.key,
+        emoji: l.emoji,
+      };
+
+      setHistory(prev => [record, ...prev]);
+    }
+
+    setSabah(0);
+    setOgle(0);
+    setAksam(0);
+    localStorage.setItem(K_TODAY, JSON.stringify({ sabah: 0, ogle: 0, aksam: 0 }));
+    localStorage.setItem("app_v2_last_date", today);
+  }
+}, []);
+
   /* LEVEL CALC */
   function getLevel(minutes) {
     const ratio = minutes / settings.limit;
