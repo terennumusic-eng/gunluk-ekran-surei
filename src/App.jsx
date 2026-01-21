@@ -50,6 +50,40 @@ export default function App() {
     localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
   }, [history, settings, sabah, ogle, aksam]);
 
+  /* AUTO DAY CHANGE (00:00) */
+useEffect(() => {
+  const checkDayChange = () => {
+  const savedDate = JSON.parse(localStorage.getItem("app_v2_last_date"));
+  const today = new Date().toDateString();
+
+  if (!savedDate) {
+    localStorage.setItem("app_v2_last_date", today);
+    return;
+  }
+
+  if (savedDate !== today && total > 0) {
+    completeDay();
+  }
+
+  localStorage.setItem("app_v2_last_date", today);
+
+// WEEKLY RESET (PAZAR → PAZARTESİ)
+const todayDay = new Date().getDay(); // 0 = Pazar
+const lastWeekReset = JSON.parse(localStorage.getItem("app_v2_last_week")) || null;
+
+if (todayDay === 1 && lastWeekReset !== today) {
+  localStorage.setItem("app_v2_last_week", today);
+}
+
+};
+
+
+  checkDayChange();
+  const interval = setInterval(checkDayChange, 60 * 1000);
+  return () => clearInterval(interval);
+}, [total]);
+
+
   /* LEVEL CALC */
   function getLevel(minutes) {
     const ratio = minutes / settings.limit;
@@ -60,6 +94,25 @@ export default function App() {
   }
 
   const todayLevel = getLevel(total);
+
+/* MOTIVATION MESSAGE */
+function getMotivation(levelKey) {
+  switch (levelKey) {
+    case "efsane":
+      return "Harikasın! Bugün kontrol tamamen sende 👑";
+    case "iyi":
+      return "Gayet iyi gidiyorsun, biraz daha dikkat 👍";
+    case "sinirda":
+      return "Sınırdasın, az kaldı. Hadi toparlayalım 💪";
+    case "asti":
+      return "Bugün biraz fazla oldu. Yarın telafi edebiliriz 🌱";
+    default:
+      return "";
+  }
+}
+
+const motivation = getMotivation(todayLevel.key);
+
 
   /* REWARD – GEÇMİŞTEN HESAP */
   const efsaneCount = history.filter(h => h.key === "efsane").length;
@@ -109,6 +162,10 @@ export default function App() {
           <div className="text-sm">
             ⭐ {star} · 👑 {crown}
           </div>
+<div className="text-sm mt-1 opacity-90">
+  {motivation}
+</div>
+
         </div>
 
         {/* TABS */}
@@ -160,36 +217,63 @@ export default function App() {
           )
         )}
 
-        {/* ANALİZ */}
-        {tab === "ANALİZ" && (
-          history.length === 0 ? (
-            <p className="text-center text-gray-400">Analiz için veri yok</p>
-          ) : (
-            <>
-              <div className="flex items-end gap-2 h-40 border-b pb-2">
-                {last7.map((d, i) => {
-                  const lvl = LEVELS[d.key];
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center">
-                      <div
-                        className={`${lvl.color} w-full rounded`}
-                        style={{
-                          height: `${Math.max(10, (d.total / maxVal) * 100)}%`
-                        }}
-                      />
-                      <span className="text-xs mt-1">G{i + 1}</span>
-                    </div>
-                  );
-                })}
-              </div>
+{/* ANALİZ */}
+{tab === "ANALİZ" && (
+  history.length === 0 ? (
+    <p className="text-center text-gray-400">Analiz için veri yok</p>
+  ) : (
+    <>
+      {/* HAFTALIK */}
+      <div className="flex items-end gap-2 h-40 border-b pb-2">
+        {last7.map((d, i) => {
+          const lvl = LEVELS[d.key];
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center">
+              <div
+                className={`${lvl.color} w-full rounded`}
+                style={{
+                  height: d.total === 0
+                    ? "10%"
+                    : `${(d.total / maxVal) * 100}%`
+                }}
+              />
+              <span className="text-xs mt-1">
+                {["Pzt","Sal","Çar","Per","Cum","Cts","Paz"][i]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
-              <div className="text-center text-sm">
-                Bu hafta <b>{last7.filter(d => d.key === "efsane").length}</b> efsane gün<br />
-                1 taç için <b>{kalan}</b> efsane gün kaldı
-              </div>
-            </>
-          )
-        )}
+      {/* AYLIK – HAFTALIK ÖZET */}
+      <div className="mt-4 flex items-end gap-3 h-32">
+        {[0,1,2,3,4].map(w => {
+          const week = history.slice(w * 7, w * 7 + 7);
+          const sum = week.reduce((t, d) => t + d.total, 0);
+          return (
+            <div key={w} className="flex-1 flex flex-col items-center">
+              <div
+                className="bg-green-500 w-full rounded"
+                style={{
+                  height: sum === 0
+                    ? "10%"
+                    : `${(sum / maxVal) * 100}%`
+                }}
+              />
+              <span className="text-xs mt-1">{w + 1}.H</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="text-center text-sm mt-2">
+        Bu hafta <b>{last7.filter(d => d.key === "efsane").length}</b> efsane gün<br />
+        1 taç için <b>{kalan}</b> efsane gün kaldı
+      </div>
+    </>
+  )
+)}
+
 
         {/* AYAR */}
         {tab === "AYAR" && (
