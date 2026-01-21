@@ -29,6 +29,7 @@ export default function App() {
 
   const [history, setHistory] = useState([]);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
 
   const total = sabah + ogle + aksam;
 
