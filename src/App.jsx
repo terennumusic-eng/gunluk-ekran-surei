@@ -140,9 +140,8 @@ const motivation = getMotivation(todayLevel.key);
   }
 
   function deleteRecord(id) {
-    if (!confirm("Bu kayıt silinsin mi?")) return;
-    setHistory(prev => prev.filter(h => h.id !== id));
-  }
+  setHistory(prev => prev.filter(h => h.id !== id));
+}
 
   /* ANALYSIS DATA */
   const last7 = history
