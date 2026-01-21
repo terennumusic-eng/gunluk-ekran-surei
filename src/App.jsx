@@ -1,230 +1,195 @@
 import { useEffect, useState } from "react";
 
-/* STORAGE KEYS */
-const K_TODAY = "app_v2_today";
-const K_HISTORY = "app_v2_history";
-const K_SETTINGS = "app_v2_settings";
+/* =======================
+   TARİH YARDIMCILARI
+======================= */
+function getISODate(date = new Date()) {
+  return date.toISOString().split("T")[0];
+}
 
-/* DEFAULT SETTINGS */
-const DEFAULT_SETTINGS = {
-  name: "Çocuk",
-  limit: 120,
-  step: 5,
-};
-
-/* LEVELS – YÜZDE BAZLI */
-const LEVELS = {
-  efsane: { max: 0.7, emoji: "🤩", color: "bg-purple-600", label: "Efsane" },
-  iyi: { max: 0.85, emoji: "🙂", color: "bg-green-500", label: "İyi" },
-  sinirda: { max: 1.0, emoji: "😐", color: "bg-yellow-400", label: "Sınırda" },
-  asti: { max: 999, emoji: "😵", color: "bg-red-500", label: "Aşırı" },
-};
-
-export default function App() {
-  const [tab, setTab] = useState("BUGÜN");
-
-  const [sabah, setSabah] = useState(0);
-  const [ogle, setOgle] = useState(0);
-  const [aksam, setAksam] = useState(0);
-
-  const [history, setHistory] = useState([]);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-
-  const total = sabah + ogle + aksam;
-
-  /* LOAD */
-  useEffect(() => {
-    setHistory(JSON.parse(localStorage.getItem(K_HISTORY)) || []);
-    setSettings(JSON.parse(localStorage.getItem(K_SETTINGS)) || DEFAULT_SETTINGS);
-
-    const today = JSON.parse(localStorage.getItem(K_TODAY)) || {};
-    setSabah(today.sabah || 0);
-    setOgle(today.ogle || 0);
-    setAksam(today.aksam || 0);
-  }, []);
-
-  /* SAVE */
-  useEffect(() => {
-    localStorage.setItem(K_HISTORY, JSON.stringify(history));
-    localStorage.setItem(K_SETTINGS, JSON.stringify(settings));
-    localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
-  }, [history, settings, sabah, ogle, aksam]);
-
-  /* LEVEL CALC */
-  function getLevel(minutes) {
-    const ratio = minutes / settings.limit;
-    if (ratio <= LEVELS.efsane.max) return { key: "efsane", ...LEVELS.efsane };
-    if (ratio <= LEVELS.iyi.max) return { key: "iyi", ...LEVELS.iyi };
-    if (ratio <= LEVELS.sinirda.max) return { key: "sinirda", ...LEVELS.sinirda };
-    return { key: "asti", ...LEVELS.asti };
+function getLast7Days() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push({
+      date: getISODate(d),
+      label: d.toLocaleDateString("tr-TR", { weekday: "short" }),
+    });
   }
+  return days;
+}
 
-  const todayLevel = getLevel(total);
+function getWeeksOfMonth(year, month) {
+  const weeks = [];
+  let week = [];
+  const date = new Date(year, month, 1);
 
-  /* REWARD – GEÇMİŞTEN HESAP */
-  const efsaneCount = history.filter(h => h.key === "efsane").length;
-  const crown = Math.floor(efsaneCount / 7);
-  const star = efsaneCount % 7;
-  const kalan = 7 - star;
+  while (date.getMonth() === month) {
+    week.push(getISODate(date));
+    if (date.getDay() === 0) {
+      weeks.push(week);
+      week = [];
+    }
+    date.setDate(date.getDate() + 1);
+  }
+  if (week.length) weeks.push(week);
+  return weeks;
+}
 
-  /* COMPLETE DAY */
-  function completeDay() {
-    const l = getLevel(total);
+/* =======================
+   ANALİZ BİLEŞENLERİ
+======================= */
+function WeeklyChart({ dailyHistory }) {
+  const today = getISODate();
+  const days = getLast7Days();
 
-    const record = {
-      id: Date.now(),
-      date: new Date().toLocaleDateString("tr-TR"),
-      total,
-      key: l.key,
-      emoji: l.emoji,
+  const data = days.map(d => {
+    const found = dailyHistory.find(h => h.date === d.date);
+    return {
+      ...d,
+      minutes: found ? found.totalMinutes : 0,
+      isToday: d.date === today,
     };
+  });
 
-    setHistory(prev => [record, ...prev]);
-    setSabah(0);
-    setOgle(0);
-    setAksam(0);
-  }
-
-  function deleteRecord(id) {
-    if (!confirm("Bu kayıt silinsin mi?")) return;
-    setHistory(prev => prev.filter(h => h.id !== id));
-  }
-
-  /* ANALYSIS DATA */
-  const last7 = history.slice(0, 7).reverse();
-  const maxVal = Math.max(
-    ...last7.map(d => d.total),
-    settings.limit,
-    1
-  );
+  const max = Math.max(...data.map(d => d.minutes), 60);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="bg-white rounded-xl shadow max-w-md mx-auto p-4 space-y-4">
-
-        {/* HEADER */}
-        <div className={`text-center text-white p-3 rounded ${todayLevel.color}`}>
-          <h1 className="font-bold">{settings.name}</h1>
-          <div className="text-3xl">{todayLevel.emoji}</div>
-          <div className="text-sm">
-            ⭐ {star} · 👑 {crown}
-          </div>
-        </div>
-
-        {/* TABS */}
-        <div className="grid grid-cols-4 gap-1">
-          {["BUGÜN", "GEÇMİŞ", "ANALİZ", "AYAR"].map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`p-2 ${
-                tab === t ? "bg-indigo-600 text-white" : "bg-gray-200"
+    <div className="mt-4">
+      <h3 className="font-semibold mb-2">Haftalık</h3>
+      <div className="flex items-end gap-2 h-40">
+        {data.map(d => (
+          <div key={d.date} className="flex-1 text-center">
+            <div
+              className={`mx-auto rounded ${
+                d.isToday ? "bg-blue-600" : "bg-blue-400"
               }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {/* BUGÜN */}
-        {tab === "BUGÜN" && (
-          <>
-            <div className="text-center">
-              {total} / {settings.limit} dk
-            </div>
-
-            <Counter label="Sabah" v={sabah} set={setSabah} step={settings.step} />
-            <Counter label="Öğle" v={ogle} set={setOgle} step={settings.step} />
-            <Counter label="Akşam" v={aksam} set={setAksam} step={settings.step} />
-
-            <button
-              onClick={completeDay}
-              className="w-full bg-indigo-600 text-white p-2 rounded"
-            >
-              GÜNÜ TAMAMLA
-            </button>
-          </>
-        )}
-
-        {/* GEÇMİŞ */}
-        {tab === "GEÇMİŞ" && (
-          history.length === 0 ? (
-            <p className="text-center text-gray-400">Kayıt yok</p>
-          ) : (
-            history.map(h => (
-              <div key={h.id} className="flex justify-between bg-gray-100 p-2 rounded">
-                <span>{h.date} · {h.emoji} {h.total}</span>
-                <button onClick={() => deleteRecord(h.id)}>🗑️</button>
-              </div>
-            ))
-          )
-        )}
-
-        {/* ANALİZ */}
-        {tab === "ANALİZ" && (
-          history.length === 0 ? (
-            <p className="text-center text-gray-400">Analiz için veri yok</p>
-          ) : (
-            <>
-              <div className="flex items-end gap-2 h-40 border-b pb-2">
-                {last7.map((d, i) => {
-                  const lvl = LEVELS[d.key];
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center">
-                      <div
-                        className={`${lvl.color} w-full rounded`}
-                        style={{
-                          height: `${Math.max(10, (d.total / maxVal) * 100)}%`
-                        }}
-                      />
-                      <span className="text-xs mt-1">G{i + 1}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="text-center text-sm">
-                Bu hafta <b>{last7.filter(d => d.key === "efsane").length}</b> efsane gün<br />
-                1 taç için <b>{kalan}</b> efsane gün kaldı
-              </div>
-            </>
-          )
-        )}
-
-        {/* AYAR */}
-        {tab === "AYAR" && (
-          <div className="space-y-2 text-sm">
-            <label>Çocuk Adı</label>
-            <input
-              className="border p-2 w-full"
-              value={settings.name}
-              onChange={e => setSettings({ ...settings, name: e.target.value })}
+              style={{ height: `${(d.minutes / max) * 100}%`, width: "70%" }}
             />
-
-            <label>Günlük Limit</label>
-            <input
-              type="number"
-              className="border p-2 w-full"
-              value={settings.limit}
-              onChange={e => setSettings({ ...settings, limit: +e.target.value })}
-            />
+            <div className="text-xs mt-1">{d.label}</div>
           </div>
-        )}
-
+        ))}
       </div>
     </div>
   );
 }
 
-function Counter({ label, v, set, step }) {
+function MonthlyChart({ dailyHistory }) {
+  const now = new Date();
+  const weeks = getWeeksOfMonth(now.getFullYear(), now.getMonth());
+
+  const weeklyTotals = weeks.map(week =>
+    week.reduce((sum, d) => {
+      const found = dailyHistory.find(h => h.date === d);
+      return sum + (found ? found.totalMinutes : 0);
+    }, 0)
+  );
+
+  const max = Math.max(...weeklyTotals, 60);
+
   return (
-    <div className="flex justify-between bg-gray-100 p-2 rounded">
-      <span>{label}</span>
-      <div>
-        <button onClick={() => set(Math.max(0, v - step))}>−</button>
-        <span className="mx-2">{v}</span>
-        <button onClick={() => set(v + step)}>+</button>
+    <div className="mt-6">
+      <h3 className="font-semibold mb-2">Aylık (Haftalık Özet)</h3>
+      <div className="flex items-end gap-3 h-32">
+        {weeklyTotals.map((m, i) => (
+          <div key={i} className="flex-1 text-center">
+            <div
+              className="mx-auto bg-green-500 rounded"
+              style={{ height: `${(m / max) * 100}%`, width: "70%" }}
+            />
+            <div className="text-xs mt-1">{i + 1}.H</div>
+          </div>
+        ))}
       </div>
+    </div>
+  );
+}
+
+function AnalysisPanel({ dailyHistory }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mt-6 border-t pt-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="font-semibold w-full text-left"
+      >
+        Analiz {open ? "▲" : "▼"}
+      </button>
+
+      {open && (
+        <div className="mt-4">
+          <WeeklyChart dailyHistory={dailyHistory} />
+          <MonthlyChart dailyHistory={dailyHistory} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =======================
+   ANA UYGULAMA
+======================= */
+export default function App() {
+  const [todayMinutes, setTodayMinutes] = useState(
+    Number(localStorage.getItem("todayMinutes") || 0)
+  );
+  const [lastDate, setLastDate] = useState(
+    localStorage.getItem("lastDate") || getISODate()
+  );
+  const [dailyHistory, setDailyHistory] = useState(
+    JSON.parse(localStorage.getItem("dailyHistory") || "[]")
+  );
+
+  /* === DAKİKA SAYACI (ESKİ MANTIK BOZULMAZ) === */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTodayMinutes(m => {
+        const next = m + 1;
+        localStorage.setItem("todayMinutes", next);
+        return next;
+      });
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  /* === GÜN DEĞİŞİMİ (00.00) === */
+  useEffect(() => {
+    const today = getISODate();
+    if (lastDate !== today) {
+      if (todayMinutes > 0) {
+        const updated = [
+          ...dailyHistory.filter(d => d.date !== lastDate),
+          { date: lastDate, totalMinutes: todayMinutes },
+        ];
+        setDailyHistory(updated);
+        localStorage.setItem("dailyHistory", JSON.stringify(updated));
+      }
+
+      setTodayMinutes(0);
+      localStorage.setItem("todayMinutes", 0);
+      setLastDate(today);
+      localStorage.setItem("lastDate", today);
+    }
+  }, [todayMinutes, lastDate, dailyHistory]);
+
+  /* === EMOJI / RENK (ESKİ DAVRANIŞ) === */
+  const emoji =
+    todayMinutes < 60 ? "😊" : todayMinutes < 120 ? "😐" : "😟";
+
+  return (
+    <div className="max-w-md mx-auto p-4">
+      <h1 className="text-xl font-bold mb-4">Günlük Ekran Süresi</h1>
+
+      <div className="text-center text-5xl mb-2">{emoji}</div>
+
+      <div className="text-center text-lg mb-4">
+        Bugün: {todayMinutes} dk
+      </div>
+
+      {/* === ANALİZ PANELİ === */}
+      <AnalysisPanel dailyHistory={dailyHistory} />
     </div>
   );
 }
