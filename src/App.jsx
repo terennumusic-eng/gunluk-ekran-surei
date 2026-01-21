@@ -51,40 +51,6 @@ export default function App() {
     localStorage.setItem(K_TODAY, JSON.stringify({ sabah, ogle, aksam }));
   }, [history, settings, sabah, ogle, aksam]);
 
-  /* AUTO DAY CHANGE (00:00) */
-useEffect(() => {
-  const checkDayChange = () => {
-  const savedDate = JSON.parse(localStorage.getItem("app_v2_last_date"));
-  const today = new Date().toDateString();
-
-  if (!savedDate) {
-    localStorage.setItem("app_v2_last_date", today);
-    return;
-  }
-
-  if (savedDate !== today && total > 0) {
-    completeDay();
-  }
-
-  localStorage.setItem("app_v2_last_date", today);
-
-// WEEKLY RESET (PAZAR → PAZARTESİ)
-const todayDay = new Date().getDay(); // 0 = Pazar
-const lastWeekReset = JSON.parse(localStorage.getItem("app_v2_last_week")) || null;
-
-if (todayDay === 1 && lastWeekReset !== today) {
-  localStorage.setItem("app_v2_last_week", today);
-}
-
-};
-
-
-  checkDayChange();
-  const interval = setInterval(checkDayChange, 60 * 1000);
-  return () => clearInterval(interval);
-}, [total]);
-
-
   /* LEVEL CALC */
   function getLevel(minutes) {
     const ratio = minutes / settings.limit;
