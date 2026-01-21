@@ -28,7 +28,7 @@ export default function App() {
   const [aksam, setAksam] = useState(0);
 
   const [history, setHistory] = useState([]);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   const total = sabah + ogle + aksam;
 
@@ -144,12 +144,18 @@ const motivation = getMotivation(todayLevel.key);
   }
 
   /* ANALYSIS DATA */
-  const last7 = history.slice(0, 7).reverse();
+  const last7 = history
+  .filter(d => typeof d.total === "number" && d.total >= 0 && d.key)
+  .slice(0, 7)
+  .reverse();
+
   const maxVal = Math.max(
     ...last7.map(d => d.total),
     settings.limit,
     1
   );
+
+const limitRatio = Math.min(100, (settings.limit / maxVal) * 100);
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -200,6 +206,48 @@ const motivation = getMotivation(todayLevel.key);
             >
               GÜNÜ TAMAMLA
             </button>
+
+{/* MINI ANALYSIS (COLLAPSIBLE) */}
+<div className="mt-4 border-t pt-3">
+  <button
+    onClick={() => setShowAnalysis(!showAnalysis)}
+    className="w-full text-sm text-indigo-600"
+  >
+    {showAnalysis ? "▲ Analizi Gizle" : "▼ Haftalık Analizi Göster"}
+  </button>
+
+  {showAnalysis && (
+    <div className="mt-3">
+      {last7.length === 0 ? (
+        <p className="text-center text-gray-400 text-sm">
+          Henüz tamamlanmış gün yok
+        </p>
+      ) : (
+        <div className="flex items-end gap-2 h-32">
+          {last7.filter(d => LEVELS[d.key]).map((d, i) => {
+            const lvl = LEVELS[d.key];
+            return (
+              <div key={i} className="flex-1 flex flex-col items-center">
+                <div
+                  className={`${lvl.color} w-full rounded`}
+                  style={{
+                    height: d.total === 0
+                      ? "10%"
+                      : `${(d.total / maxVal) * 100}%`
+                  }}
+                />
+                <span className="text-xs mt-1">
+                  {["Pzt","Sal","Çar","Per","Cum","Cts","Paz"][i]}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
           </>
         )}
 
@@ -219,13 +267,18 @@ const motivation = getMotivation(todayLevel.key);
 
 {/* ANALİZ */}
 {tab === "ANALİZ" && (
-  history.length === 0 ? (
+  history.length === 0 || last7.length === 0 ? (
     <p className="text-center text-gray-400">Analiz için veri yok</p>
   ) : (
     <>
       {/* HAFTALIK */}
-      <div className="flex items-end gap-2 h-40 border-b pb-2">
-        {last7.map((d, i) => {
+      <div className="relative flex items-end gap-2 h-40 border-b pb-2">
+  {/* LIMIT LINE */}
+  <div
+    className="absolute left-0 right-0 border-t border-dashed border-red-400"
+    style={{ bottom: `${limitRatio}%` }}
+  />
+        {last7.filter(d => LEVELS[d.key]).map((d, i) => {
           const lvl = LEVELS[d.key];
           return (
             <div key={i} className="flex-1 flex flex-col items-center">
@@ -249,7 +302,7 @@ const motivation = getMotivation(todayLevel.key);
       <div className="mt-4 flex items-end gap-3 h-32">
         {[0,1,2,3,4].map(w => {
           const week = history.slice(w * 7, w * 7 + 7);
-          const sum = week.reduce((t, d) => t + d.total, 0);
+          const sum = week.reduce((t, d) => t + (typeof d?.total === "number" ? d.total : 0), 0);
           return (
             <div key={w} className="flex-1 flex flex-col items-center">
               <div
